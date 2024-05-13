@@ -6,8 +6,8 @@ using JLD2
 include_dipole = false
 ell_min = include_dipole ? 1 : 2
 # Define the grid over which to sample the covariance matrix, and the k values
-rs = LinRange(0.1, 350, 100)  # Mpc / h
-cosθs = LinRange(-1, 1, 100)
+rs = LinRange(0.1, 350, 50)  # Mpc / h
+cosθs = LinRange(-1, 1, 50)
 ks = 10 .^ LinRange(-4, 1, 2048)
 println("Sampling covariance matrix over $(length(rs)) x $(length(rs)) x $(length(cosθs)) grid points.")
 println("Spacing in r: $(rs[2] - rs[1]) Mpc / h")
@@ -26,6 +26,7 @@ ncosθ = length(cosθs)
 Cij_grid = zeros(nrs, nrs, ncosθ)
 
 println("We are running with $(Threads.nthreads()) threads.")
+println()
 @showprogress dt=1 desc="Computing C_ij" @threads for idx in 1:(nrs^2 * ncosθ)
     # Determine the original indices on the 3D grid
     i = ((idx - 1) ÷ (nrs * ncosθ)) + 1
