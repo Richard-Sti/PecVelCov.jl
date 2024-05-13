@@ -5,16 +5,14 @@ import Interpolations: LinearInterpolation
 import NPZ: npzread
 import Integrals: SimpsonsRule, SampledIntegralProblem, solve
 import SpecialFunctions: sphericalbesselj
+import JLD2: jldopen
 
 export build_Pk_interpolator, djn, sf_legendre_Pl, C_ij, djn2
 
 
-"""
-    djn(n::Integer, x::Number) -> Number
-
-Compute the derivative of the spherical Bessel function of the first kind `jₙ(x)` with respect to `x`.
-"""
-djn(n, x) = n / x * sphericalbesselj(n, x) - sphericalbesselj(n + 1, x)
+###############################################################################
+#                     Building interpolators                                  #
+###############################################################################
 
 
 """
@@ -29,6 +27,19 @@ function build_Pk_interpolator(fname)
 
     return LinearInterpolation(k, Pk)
 end
+
+
+###############################################################################
+#                   Covariance matrix elements calculation                    #
+###############################################################################
+
+
+"""
+    djn(n::Integer, x::Number) -> Number
+
+Compute the derivative of the spherical Bessel function of the first kind `jₙ(x)` with respect to `x`.
+"""
+djn(n, x) = n / x * sphericalbesselj(n, x) - sphericalbesselj(n + 1, x)
 
 
 """
@@ -54,5 +65,7 @@ function C_ij(ri, rj, cosθ, Pk, ks; ell_min=0, ell_max=20)
     sol = solve(SampledIntegralProblem(ys_dummy, ks), SimpsonsRule())
     return sol.u
 end
+
+
 
 end
