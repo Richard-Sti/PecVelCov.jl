@@ -1,4 +1,4 @@
-using PecVecCov
+using PecVelCov
 using ProgressMeter
 using Base.Threads
 using JLD2

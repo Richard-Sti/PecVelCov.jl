@@ -1,4 +1,4 @@
-module PecVecCov
+module PecVelCov
 
 import GSL: sf_legendre_Pl
 import Interpolations: LinearInterpolation

@@ -1,4 +1,4 @@
-name = "PecVecCov"
+name = "PecVelCov"
 uuid = "87a141a9-c1bf-47ab-a1ff-8b3b057113ee"
 authors = ["rstiskalek <richard.stiskalek@protonmail.com>"]
 version = "0.1.0"
