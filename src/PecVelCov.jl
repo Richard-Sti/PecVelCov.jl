@@ -7,7 +7,7 @@ import NPZ: npzread
 import SpecialFunctions: sphericalbesselj
 using Interpolations
 
-export build_Pk_interpolator, djn, sf_legendre_Pl, C_ij, djn2, build_Cij_interpolator
+export build_Cij_interpolator, build_Pk_interpolator, C_ij
 
 
 ###############################################################################
