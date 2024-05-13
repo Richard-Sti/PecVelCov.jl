@@ -1,11 +1,11 @@
 module PecVelCov
 
 import GSL: sf_legendre_Pl
-using Interpolations
-import NPZ: npzread
-import Integrals: SimpsonsRule, SampledIntegralProblem, solve
-import SpecialFunctions: sphericalbesselj
+import Integrals: SampledIntegralProblem, SimpsonsRule, solve
 import JLD2: jldopen
+import NPZ: npzread
+import SpecialFunctions: sphericalbesselj
+using Interpolations
 
 export build_Pk_interpolator, djn, sf_legendre_Pl, C_ij, djn2, build_Cij_interpolator
 
@@ -35,10 +35,12 @@ end
 Build an interpolator for the covariance matrix elements `C_{ij}` from the data stored in the file `fname`.
 """
 function build_Cij_interpolator(fname)
+    rs, cosθs, Cij_grid = nothing, nothing, nothing
     jldopen(fname, "r") do file
         rs = file["rs"]
         cosθs = file["cosθs"]
         Cij_grid = file["Cij_grid"]
+    end
 
     interp = interpolate(Cij_grid, BSpline(Cubic(Line(OnGrid()))))
     interp = scale(interp, rs, rs, cosθs)
