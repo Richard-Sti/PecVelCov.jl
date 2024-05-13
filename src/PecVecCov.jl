@@ -6,7 +6,7 @@ import NPZ: npzread
 import Integrals: SimpsonsRule, SampledIntegralProblem, solve
 import SpecialFunctions: sphericalbesselj
 
-export build_Pk_interpolator, djn, sf_legendre_Pl, C_ij!, djn2
+export build_Pk_interpolator, djn, sf_legendre_Pl, C_ij, djn2
 
 
 """
@@ -40,18 +40,16 @@ end
 
 
 """
-    C_ij!(ys_dummy, ri, rj, cosθ, Pk, ks; ell_min=0, ell_max=20) -> Number
+    C_ij(ri, rj, cosθ, Pk, ks; ell_min=0, ell_max=20) -> Number
 
 Calculate the covariance matrix element `C_{ij}` for the two points `rᵢ` and `rⱼ` separated by
-an angle `θ`. `ys_dummy` is a dummy array that will be used to store the integrand for
-the integral over the wavenumber `k`.
-
+an angle `θ`.
 
 # TODO: Still missing prefactors before the integral over k.
 """
-function C_ij!(ys_dummy, ri, rj, cosθ, Pk, ks; ell_min=0, ell_max=20)
+function C_ij(ri, rj, cosθ, Pk, ks; ell_min=0, ell_max=20)
+    ys_dummy = zeros(length(ks))
     for i in eachindex(ks)
-        ys_dummy[i] = 0.
         kri = ks[i] * ri
         krj = ks[i] * rj
         for ell in ell_min:ell_max
