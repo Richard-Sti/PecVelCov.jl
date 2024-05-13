@@ -1,2 +1,3 @@
 notebooks/test.ipynb
 scripts/*.out
+scripts/julia.sh
