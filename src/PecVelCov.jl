@@ -5,9 +5,11 @@ import Integrals: SampledIntegralProblem, SimpsonsRule, solve
 import JLD2: jldopen
 import NPZ: npzread
 import SpecialFunctions: sphericalbesselj
+using LinearAlgebra
 using Interpolations
 
-export build_Cij_interpolator, build_Pk_interpolator, C_ij
+export build_Cij_interpolator, build_Pk_interpolator, covariance_inverse_and_determinant,
+       C_ij, pecvel_covariance_matrix
 
 
 ###############################################################################
@@ -44,6 +46,7 @@ function build_Cij_interpolator(fname)
 
     interp = interpolate(Cij_grid, BSpline(Cubic(Line(OnGrid()))))
     interp = scale(interp, rs, rs, cosθs)
+    interp = extrapolate(interp, Line())
 
     return interp
 end
@@ -85,5 +88,69 @@ function C_ij(ri, rj, cosθ, Pk, ks; ell_min=0, ell_max=20)
     return sol.u
 end
 
+
+###############################################################################
+#                   Covariance matrix for a set of tracers                    #
+###############################################################################
+
+
+"""
+    pecvel_covariance_matrix(rs, θs, ϕs; Cij_interpolator=nothing) -> Matrix
+
+Compute the covariance matrix for the peculiar velocity field for a set of tracers using the
+interpolator `Cij_interpolator` for the covariance matrix elements.
+"""
+function pecvel_covariance_matrix(rs, θs, ϕs; Cij_interpolator=nothing)
+    if isa(Cij_interpolator, String)
+        Cij_interpolator = build_Cij_interpolator(Cij_interpolator)
+    end
+
+    # Check if valid interpolator is provided.
+    if isa(Cij_interpolator, Nothing)
+        error("Either provide `Cij_interpolator`` or a filename to build it.")
+    end
+
+    @assert length(rs) == length(θs) && length(θs) == length(ϕs) "rs, θs, and ϕs must have the same length."
+    sinθs = sin.(θs)
+    cosθs = cos.(θs)
+
+    Σ = zeros(length(rs), length(rs))
+
+    for i in eachindex(rs), j in eachindex(rs)
+        if j > i
+            continue
+        end
+
+        cosΔ = sinθs[i] * sinθs[j] * cos(ϕs[i] - ϕs[j]) + cosθs[i] * cosθs[j]
+        Σij = Cij_interpolator(rs[i], rs[j], cosΔ)
+
+        Σ[i, j] = Σij
+        Σ[j, i] = Σij
+    end
+
+    return Σ
+end
+
+
+###############################################################################
+#                 Covariance matrix inverse and determinant                   #
+###############################################################################
+
+
+"""
+    covariance_inverse_and_determinant(C) -> Tuple{Matrix, Number}
+
+Compute the inverse and determinant of the covariance matrix `C` using the Cholesky decomposition.
+"""
+function covariance_inverse_and_determinant(C)
+    L = cholesky(C).L
+    L_inv = inv(L)
+
+    det = prod(diag(L))^2
+
+    C_inv = L_inv' * L_inv
+
+    return C_inv, det
+end
 
 end
