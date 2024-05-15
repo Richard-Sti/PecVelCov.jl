@@ -9,7 +9,8 @@ using LinearAlgebra
 using Interpolations
 
 export build_Cij_interpolator, build_Pk_interpolator, covariance_inverse_and_determinant,
-       C_ij, djn, sf_legendre_Pl, precompute_djn, precompute_legendre_Pells, pecvel_covariance_matrix
+       C_ij, djn, sf_legendre_Pl, precompute_djn, precompute_djn_start, precompute_legendre_Pells,
+       pecvel_covariance_matrix
 
 
 ###############################################################################
@@ -73,6 +74,16 @@ function precompute_djn(ell_min, ell_max, xs)
 end
 
 
+"""
+    precompute_djn_start(djn_interp, xs) -> Dict
+
+Precompute the first point where the absolute value of the derivative of the spherical Bessel function
+of the first kind `jₙ(x)` with respect to `x` is greater than `fmin` for the range of multipoles.
+"""
+function precompute_djn_start(djn_interp, xs; fmin=1e-10)
+    return Dict(ell => xs[findfirst(x -> abs(x) > fmin, djn_interp[ell](xs))] for ell in keys(djn_interp))
+end
+
 
 ###############################################################################
 #                   Covariance matrix elements calculation                    #
@@ -88,31 +99,34 @@ djn(n, x) = n / x * sphericalbesselj(n, x) - sphericalbesselj(n + 1, x)
 
 
 """
-    C_ij(kri, krj, cosΔ, Pells, Pk, ks; ell_min=2, ell_max=20, djn_interp=nothing) -> Number
+    C_ij(kri, krj, Pells, Pk, ks; ell_min=2, ell_max=20, djn_interp=nothing, start_krs=nothing) -> Number
 
 Covariance matrix element `C_{ij}` for the two points `rᵢ` and `rⱼ` separated by
 an angle `θ`.
 
 # TODO: Still missing prefactors before the integral over k.
 """
-function C_ij(kri, krj, Pells, Pk, ks; ell_min=2, ell_max=20, djn_interp=nothing)
+function C_ij(kri, krj, Pells, Pk, ks; ell_min=2, ell_max=20, djn_interp=nothing, start_krs=nothing)
     ys_dummy = zeros(length(ks))
     ell_range = ell_min:ell_max
     djn_eval = isa(djn_interp, Nothing) ? (ell, k) -> djn(ell, k) : (ell, k) -> djn_interp[ell](k)
+    start_krs_eval = isa(start_krs, Nothing) ? ell -> 0.0 : ell -> start_krs[ell]
 
-    @inbounds for i in eachindex(ks)
-        y_val = 0.0
-        kri_i = kri[i]
-        krj_i = krj[i]
+    @inbounds for i in reverse(eachindex(ks))
+        y_val, kri_i, krj_i = 0.0, kri[i], krj[i]
         for ell in ell_range
+            # Once this condition is trigerred it will always be trigerred for
+            # the rest of the loop over ell.
+            start_kr = start_krs_eval(ell)
+            if kri_i < start_kr || krj_i < start_kr
+                break
+            end
             y_val += @fastmath (ell + 1) * djn_eval(ell, kri_i) * djn_eval(ell, krj_i) * Pells[ell]
         end
-
         ys_dummy[i] = y_val * Pk[i]
     end
 
-    sol = solve(SampledIntegralProblem(ys_dummy, ks), SimpsonsRule())
-    return sol.u
+    return solve(SampledIntegralProblem(ys_dummy, ks), SimpsonsRule()).u
 end
 
 
