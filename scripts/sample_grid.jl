@@ -5,6 +5,8 @@ using JLD2
 
 include_dipole = false
 ell_min = include_dipole ? 1 : 2
+global_ell_max = 100
+
 # Define the grid over which to sample the covariance matrix, and the k values
 rs = LinRange(0.1, 350, 50)  # Mpc / h
 cosθs = LinRange(-1, 1, 50)
@@ -21,21 +23,29 @@ pk = pk_interp(ks)
 println("Power spectrum loaded. Ranges from $(minimum(ks)) to $(maximum(ks)).")
 
 
-nrs = length(rs)
-ncosθ = length(cosθs)
-Cij_grid = zeros(nrs, nrs, ncosθ)
+# Precompute the derivatives of the spherical Bessel functions
+println("Precomuting the derivatives of the spherical Bessel functions...")
+kmin, kmax = minimum(ks), maximum(ks)
+rmin, rmax = minimum(rs), maximum(rs)
+krs = 10 .^ LinRange(log10(kmin * rmin), log10(kmax * rmax), 262144)
+djn_interp = precompute_djn(ell_min, global_ell_max, krs);
+start_krs = precompute_djn_start(djn_interp, krs)
 
-println("We are running with $(Threads.nthreads()) threads.")
-println()
-@showprogress dt=1 desc="Computing C_ij" @threads for idx in 1:(nrs^2 * ncosθ)
-    # Determine the original indices on the 3D grid
-    i = ((idx - 1) ÷ (nrs * ncosθ)) + 1
-    j = (((idx - 1) ÷ ncosθ) % nrs) + 1
-    k = ((idx - 1) % ncosθ) + 1
+nr, ncosθ = length(rs), length(cosθs)
+Cij_grid = zeros(nr, nr, ncosθ)
 
+println("We are running with $(Threads.nthreads()) threads.\n")
+@showprogress dt=1 @threads for k in reverse(1:ncosθ)
     cosθ = cosθs[k]
-    ell_max = cosθ < 0.95 ? 50 : 100
-    Cij_grid[i, j, k] = C_ij(rs[i], rs[j], cosθ, pk, ks; ell_min=ell_min, ell_max=ell_max)
+    ell_max = cosθ < 0.95 ? 20 : 100
+    Pells = precompute_legendre_Pells(ell_min, ell_max, cosθ)
+    for i in 1:nr
+        kri = ks .* rs[i]
+        for j in 1:nr
+            krj = ks .* rs[j]
+            Cij_grid[i, j, k] = C_ij(kri, krj, Pells, pk, ks; ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
+        end
+    end
 end
 
 
