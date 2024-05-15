@@ -10,7 +10,7 @@ using Interpolations
 
 export build_Cij_interpolator, build_Pk_interpolator, covariance_inverse_and_determinant,
        C_ij, djn, sf_legendre_Pl, precompute_djn, precompute_djn_start, precompute_legendre_Pells,
-       pecvel_covariance_matrix
+       pecvel_covmat_from_interp
 
 
 ###############################################################################
@@ -136,19 +136,14 @@ end
 
 
 """
-    pecvel_covariance_matrix(rs, θs, ϕs; Cij_interpolator=nothing) -> Matrix
+    pecvel_covariance_matrix(rs, θs, ϕs, Cij_interpolator) -> Matrix
 
 Compute the covariance matrix for the peculiar velocity field for a set of tracers using the
 interpolator `Cij_interpolator` for the covariance matrix elements.
 """
-function pecvel_covariance_matrix(rs, θs, ϕs; Cij_interpolator=nothing)
+function pecvel_covmat_from_interp(rs, θs, ϕs, Cij_interpolator)
     if isa(Cij_interpolator, String)
         Cij_interpolator = build_Cij_interpolator(Cij_interpolator)
-    end
-
-    # Check if valid interpolator is provided.
-    if isa(Cij_interpolator, Nothing)
-        error("Either provide `Cij_interpolator`` or a filename to build it.")
     end
 
     @assert length(rs) == length(θs) && length(θs) == length(ϕs) "rs, θs, and ϕs must have the same length."
@@ -156,7 +151,6 @@ function pecvel_covariance_matrix(rs, θs, ϕs; Cij_interpolator=nothing)
     cosθs = cos.(θs)
 
     Σ = zeros(length(rs), length(rs))
-
     for i in eachindex(rs), j in eachindex(rs)
         if j > i
             continue
