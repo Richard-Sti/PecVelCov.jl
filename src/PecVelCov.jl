@@ -9,7 +9,7 @@ using LinearAlgebra
 using Interpolations
 
 export build_Cij_interpolator, build_Pk_interpolator, covariance_inverse_and_determinant,
-       C_ij, pecvel_covariance_matrix
+       C_ij, djn, sf_legendre_Pl, precompute_djn, precompute_legendre_Pells, pecvel_covariance_matrix
 
 
 ###############################################################################
@@ -51,6 +51,29 @@ function build_Cij_interpolator(fname)
     return interp
 end
 
+
+"""
+    precompute_legendre_Pells(ell_min, ell_max, cosθ) -> Dict
+
+Precompute the Legendre polynomials for the range of multipoles `ell_min` to `ell_max` at `cosθ`.
+"""
+function precompute_legendre_Pells(ell_min, ell_max, cosθ)
+    return Dict(ell => sf_legendre_Pl(ell, cosθ) for ell in ell_min:ell_max)
+end
+
+
+"""
+    precompute_djn(ell_min, ell_max, x) -> Dict
+
+Precompute an interpolator for the derivative of the spherical Bessel function of the first kind
+`jₙ(x)` with respect to `x` for the range of multipoles `ell_min` to `ell_max`.
+"""
+function precompute_djn(ell_min, ell_max, xs)
+    return Dict(ell => interpolate((xs,), djn.(ell, xs), Gridded(Linear())) for ell in ell_min:ell_max)
+end
+
+
+
 ###############################################################################
 #                   Covariance matrix elements calculation                    #
 ###############################################################################
@@ -59,29 +82,33 @@ end
 """
     djn(n::Integer, x::Number) -> Number
 
-Compute the derivative of the spherical Bessel function of the first kind `jₙ(x)` with respect to `x`.
+Derivative of the spherical Bessel function of the first kind `jₙ(x)` with respect to `x`.
 """
 djn(n, x) = n / x * sphericalbesselj(n, x) - sphericalbesselj(n + 1, x)
 
 
 """
-    C_ij(ri, rj, cosθ, Pk, ks; ell_min=0, ell_max=20) -> Number
+    C_ij(kri, krj, cosΔ, Pells, Pk, ks; ell_min=2, ell_max=20, djn_interp=nothing) -> Number
 
-Calculate the covariance matrix element `C_{ij}` for the two points `rᵢ` and `rⱼ` separated by
+Covariance matrix element `C_{ij}` for the two points `rᵢ` and `rⱼ` separated by
 an angle `θ`.
 
 # TODO: Still missing prefactors before the integral over k.
 """
-function C_ij(ri, rj, cosθ, Pk, ks; ell_min=0, ell_max=20)
+function C_ij(kri, krj, Pells, Pk, ks; ell_min=2, ell_max=20, djn_interp=nothing)
     ys_dummy = zeros(length(ks))
-    for i in eachindex(ks)
-        kri = ks[i] * ri
-        krj = ks[i] * rj
-        for ell in ell_min:ell_max
-            ys_dummy[i] += (ell + 1) * djn(ell, kri) * djn(ell, krj) * sf_legendre_Pl(ell, cosθ)
+    ell_range = ell_min:ell_max
+    djn_eval = isa(djn_interp, Nothing) ? (ell, k) -> djn(ell, k) : (ell, k) -> djn_interp[ell](k)
+
+    @inbounds for i in eachindex(ks)
+        y_val = 0.0
+        kri_i = kri[i]
+        krj_i = krj[i]
+        for ell in ell_range
+            y_val += @fastmath (ell + 1) * djn_eval(ell, kri_i) * djn_eval(ell, krj_i) * Pells[ell]
         end
 
-        ys_dummy[i] *= Pk[i]
+        ys_dummy[i] = y_val * Pk[i]
     end
 
     sol = solve(SampledIntegralProblem(ys_dummy, ks), SimpsonsRule())
