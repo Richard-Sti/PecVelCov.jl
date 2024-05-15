@@ -112,7 +112,7 @@ function C_ij(kri, krj, Pells, Pk, ks; ell_min=2, ell_max=20, djn_interp=nothing
     djn_eval = isa(djn_interp, Nothing) ? (ell, k) -> djn(ell, k) : (ell, k) -> djn_interp[ell](k)
     start_krs_eval = isa(start_krs, Nothing) ? ell -> 0.0 : ell -> start_krs[ell]
 
-    @inbounds for i in reverse(eachindex(ks))
+    @inbounds for i in eachindex(ks)
         y_val, kri_i, krj_i = 0.0, kri[i], krj[i]
         for ell in ell_range
             # Once this condition is trigerred it will always be trigerred for
