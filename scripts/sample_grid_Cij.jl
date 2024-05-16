@@ -23,7 +23,7 @@ println("Spacing in cosθ: $(cosθs[2] - cosθs[1])")
 fname_pk = "/mnt/users/rstiskalek/BayesianBulkFlows/data/pk_fiducial.npy"
 println("Loading power spectrum from `$fname_pk`...")
 pk_interp = build_Pk_interpolator(fname_pk)
-pk = pk_interp(ks)
+pk = pk_interp.(ks)
 println("Power spectrum loaded. Ranges from $(minimum(ks)) to $(maximum(ks)).")
 
 
