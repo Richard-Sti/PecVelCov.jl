@@ -82,7 +82,8 @@ function run_full(rs, cosθs, Pk, ks, ell_min, ell_max, djn_interp, start_krs)
     nr, ncosθ = length(rs), length(cosθs)
     Cij_grid = zeros(nr, nr, ncosθ)
 
-    @showprogress dt=1 @threads for k in reverse(1:ncosθ)
+    p = Progress(nr * nr * ncosθ, dt=1)
+    @threads for k in reverse(1:ncosθ)
         cosθ = cosθs[k]
         Pells = precompute_legendre_Pells(ell_min, ell_max, cosθ)
         for i in 1:nr
@@ -90,9 +91,12 @@ function run_full(rs, cosθs, Pk, ks, ell_min, ell_max, djn_interp, start_krs)
             for j in 1:nr
                 krj = ks .* rs[j]
                 Cij_grid[i, j, k] = C_ij(kri, krj, Pells, Pk, ks; ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
+                next!(p)
             end
+            flush(stdout)
         end
     end
+    finish!(p)
 
     return Cij_grid
 end
@@ -117,15 +121,14 @@ if abspath(PROGRAM_FILE) == @__FILE__
     println("We are running with $(Threads.nthreads()) threads.\n")
     args = get_cmd(ARGS)
 
-    println("Loading power spectrum from `$(args["fname_pk"])`...")
+    println("Loading power spectrum from `$(args["fname_pk"])`..."), flush(stdout)
     ks = 10 .^ LinRange(args["logk_range"][1], args["logk_range"][2], args["npoints_k"])
     Pk = build_Pk_interpolator(args["fname_pk"]).(ks)
 
-    println("Loading the precomputed spherical Bessel function derivatives from `$(args["fname_djn"])`...")
+    println("Loading the precomputed spherical Bessel function derivatives from `$(args["fname_djn"])`..."), flush(stdout)
     djn_interp, start_krs = build_dnj_interpolator(args["fname_djn"])
 
-
-    println("Starting computation of covariance matrix elements...\n")
+    println("Starting computation, kind is `$(args["runtype"])`...\n"), flush(stdout)
     if args["cosθs"] === nothing
         Σ = run_diagonal(args["rs"], Pk, ks, args["ell_min"], args["ell_max"], djn_interp, start_krs)
     else
