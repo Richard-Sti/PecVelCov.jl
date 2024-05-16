@@ -9,10 +9,9 @@ using ProgressMeter
 using LinearAlgebra
 using Interpolations
 
-export build_Cij_interpolator, build_Cii_interpolator, build_Pk_interpolator,
-    covariance_inverse_and_determinant, C_ij, djn, sf_legendre_Pl, precompute_djn,
-    precompute_legendre_Pells, pecvel_covmat_from_interp,
-    pecvel_covmat_brute
+export build_Cij_interpolator, build_Cii_interpolator, build_dnj_interpolator, build_Pk_interpolator,
+    covariance_inverse_and_determinant, C_ij, djn, sf_legendre_Pl, precompute_legendre_Pells,
+    pecvel_covmat_from_interp, pecvel_covmat_brute
 
 
 ###############################################################################
@@ -83,12 +82,12 @@ end
 
 
 """
-    precompute_djn(ell_min, ell_max, x) -> Dict
+    build_dnj_interpolator(fname::String) -> Tuple{Dict, Dict}
 
-Precompute an interpolator for the derivative of the spherical Bessel function of the first kind
+Build a precomputed interpolator for the derivative of the spherical Bessel function of the first kind
 `jₙ(x)` with respect to `x` for the range of multipoles `ell_min` to `ell_max`.
 """
-function precompute_djn(fname)
+function build_dnj_interpolator(fname)
     xs, ells, ys = nothing, nothing, nothing
     jldopen(fname, "r") do file
         xs = file["xs"]
@@ -99,7 +98,6 @@ function precompute_djn(fname)
     dnj_interp = Dict(ell => interpolate((xs,), ys[:, i], Gridded(Linear())) for (i, ell) in enumerate(ells))
     start_xs = Dict(ell => xs[findfirst(x -> abs(x) > 1e-10, ys[:, i])] for (i, ell) in enumerate(ells))
     return dnj_interp, start_xs
-
 end
 
 
@@ -187,6 +185,7 @@ function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_i
 
             cosΔ = min(sinθ_i * sinθs[j] * cos(ϕs[i] - ϕs[j]) + cosθ_i * cosθs[j], 1.0)
 
+            # TODO: edit this.
             # if cosΔ > 0.95 # && abs(rs[i] - rs[j]) < 10
             if false
                 count += 1
