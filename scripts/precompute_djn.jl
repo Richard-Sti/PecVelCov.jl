@@ -16,7 +16,7 @@ function get_cmd(args)
         "ell_max"
             help = "Maximum ell"
             arg_type = Int
-            default = 200
+            default = 100
         "logk_range"
             help = "Range of log(k) values [h / Mpc]"
             arg_type = Float64
