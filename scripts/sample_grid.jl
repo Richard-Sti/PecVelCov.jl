@@ -8,9 +8,9 @@ ell_min = include_dipole ? 1 : 2
 global_ell_max = 100
 
 # Define the grid over which to sample the covariance matrix, and the k values
-rs = LinRange(0.1, 350, 50)  # Mpc / h
-cosθs = LinRange(-1, 1, 50)
-ks = 10 .^ LinRange(-4, 1, 2048)
+rs = LinRange(0.1, 350, 400)  # Mpc / h
+cosθs = LinRange(-1, 1, 400)
+ks = 10 .^ LinRange(-4, 1, 2 * 2048)
 println("Sampling covariance matrix over $(length(rs)) x $(length(rs)) x $(length(cosθs)) grid points.")
 println("Spacing in r: $(rs[2] - rs[1]) Mpc / h")
 println("Spacing in cosθ: $(cosθs[2] - cosθs[1])")
