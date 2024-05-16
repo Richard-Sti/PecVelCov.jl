@@ -3,10 +3,10 @@ Script to sample the covariance matrix C_ij over a grid of r, r', and cosθ valu
 choice is banked in through the power spectrum interpolator. The script saves the computed covariance matrix elements.
 =#
 using ArgParse
-using PecVelCov
-using ProgressMeter
 using Base.Threads
 using JLD2
+using PecVelCov
+using ProgressMeter
 
 
 function get_cmd(args)
@@ -39,7 +39,7 @@ function get_cmd(args)
     if args["runtype"] == "full"
         args["fname_out"] = "/mnt/extraspace/rstiskalek/BBF/Cij_grid.jld2"
         args["rs"] = LinRange(0.1, 350, 500)  # Mpc / h
-        args["cosθs"] = LinRange(-1, 1, 500)
+        args["cosθs"] = LinRange(-0.93, 0.93, 500)
         args["ell_max"] = 20
         println("Sampling Σ_ij over $(length(args["rs"])) x $(length(args["rs"])) x $(length(args["cosθs"])) grid points.")
     elseif args["runtype"] == "diagonal"
@@ -125,6 +125,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     djn_interp, start_krs = build_dnj_interpolator(args["fname_djn"])
 
 
+    println("Starting computation of covariance matrix elements...\n")
     if args["cosθs"] === nothing
         Σ = run_diagonal(args["rs"], Pk, ks, args["ell_min"], args["ell_max"], djn_interp, start_krs)
     else
@@ -133,6 +134,4 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
     println("Saving computed covariance matrix elements to `$(args["fname_out"])`.")
     jldsave(args["fname_out"], rs=args["rs"], cosθs=args["cosθs"], Σ=Σ)
-
-
 end
