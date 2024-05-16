@@ -9,9 +9,10 @@ using ProgressMeter
 using LinearAlgebra
 using Interpolations
 
-export build_Cij_interpolator, build_Pk_interpolator, covariance_inverse_and_determinant,
-       C_ij, djn, sf_legendre_Pl, precompute_djn, precompute_djn_start, precompute_legendre_Pells,
-       pecvel_covmat_from_interp, pecvel_covmat_brute
+export build_Cij_interpolator, build_Cii_interpolator, build_Pk_interpolator,
+    covariance_inverse_and_determinant, C_ij, djn, sf_legendre_Pl, precompute_djn,
+    precompute_djn_start, precompute_legendre_Pells, pecvel_covmat_from_interp,
+    pecvel_covmat_brute
 
 
 ###############################################################################
@@ -48,6 +49,25 @@ function build_Cij_interpolator(fname)
 
     interp = interpolate(Cij_grid, BSpline(Cubic(Line(OnGrid()))))
     interp = scale(interp, rs, rs, cosθs)
+    interp = extrapolate(interp, Line())
+
+    return interp
+end
+
+"""
+    build_Cii_interpolator(fname::String) -> Interpolations.ScaledInterpolation
+
+Build an interpolator for the covariance matrix diagonal elements `C_{ii}` from the data stored in the file `fname`.
+"""
+function build_Cii_interpolator(fname)
+    rs, Cii_grid = nothing, nothing, nothing
+    jldopen(fname, "r") do file
+        rs = file["rs"]
+        Cii_grid = file["Cii_grid"]
+    end
+
+    interp = interpolate(Cii_grid, BSpline(Cubic(Line(OnGrid()))))
+    interp = scale(interp, rs)
     interp = extrapolate(interp, Line())
 
     return interp
@@ -137,12 +157,13 @@ end
 
 
 """
-    pecvel_covariance_matrix(rs, θs, ϕs, Cij_interpolator) -> Matrix
+    pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_interpolator; ell_min, djn_interp, start_krs) -> Matrix
 
 Compute the covariance matrix for the peculiar velocity field for a set of tracers using the
-interpolator `Cij_interpolator` for the covariance matrix elements.
+interpolator `Cij_interpolator` for the off-diagonal covariance matrix elements and `Cii_interpolator`
+for the diagonal elements.
 """
-function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator; ell_min, djn_interp, start_krs)
+function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_interpolator; ell_min, djn_interp, start_krs)
     @assert length(rs) == length(θs) && length(θs) == length(ϕs) "rs, θs, and ϕs must have the same length."
     sinθs, cosθs = sin.(θs), cos.(θs)
 
@@ -155,10 +176,7 @@ function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator; ell_m
             end
 
             if i == j
-                kri = ks .* rs[i]
-                ell_max = 100
-                Pells = Dict(ell => 1. for ell in ell_min:ell_max)
-                Σij = C_ij(kri, kri, Pells, Pk, ks; ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
+                Σij = Cii_interpolator(rs[i])
             else
                 cosΔ = min(sinθ_i * sinθs[j] * cos(ϕs[i] - ϕs[j]) + cosθ_i * cosθs[j], 1.0)
                 Σij = Cij_interpolator(rs[i], rs[j], cosΔ)
