@@ -122,7 +122,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     Pk = build_Pk_interpolator(args["fname_pk"]).(ks)
 
     println("Loading the precomputed spherical Bessel function derivatives from `$(args["fname_djn"])`...")
-    djn_interp, start_krs = precompute_djn(args["fname_djn"])
+    djn_interp, start_krs = build_dnj_interpolator(args["fname_djn"])
 
 
     if args["cosθs"] === nothing
