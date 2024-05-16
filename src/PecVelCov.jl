@@ -5,12 +5,13 @@ import Integrals: SampledIntegralProblem, SimpsonsRule, solve
 import JLD2: jldopen
 import NPZ: npzread
 import SpecialFunctions: sphericalbesselj
+using ProgressMeter
 using LinearAlgebra
 using Interpolations
 
 export build_Cij_interpolator, build_Pk_interpolator, covariance_inverse_and_determinant,
        C_ij, djn, sf_legendre_Pl, precompute_djn, precompute_djn_start, precompute_legendre_Pells,
-       pecvel_covmat_from_interp
+       pecvel_covmat_from_interp, pecvel_covmat_brute
 
 
 ###############################################################################
@@ -141,29 +142,72 @@ end
 Compute the covariance matrix for the peculiar velocity field for a set of tracers using the
 interpolator `Cij_interpolator` for the covariance matrix elements.
 """
-function pecvel_covmat_from_interp(rs, θs, ϕs, Cij_interpolator)
-    if isa(Cij_interpolator, String)
-        Cij_interpolator = build_Cij_interpolator(Cij_interpolator)
-    end
-
+function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator; ell_min, djn_interp, start_krs)
     @assert length(rs) == length(θs) && length(θs) == length(ϕs) "rs, θs, and ϕs must have the same length."
-    sinθs = sin.(θs)
-    cosθs = cos.(θs)
+    sinθs, cosθs = sin.(θs), cos.(θs)
 
     Σ = zeros(length(rs), length(rs))
-    for i in eachindex(rs), j in eachindex(rs)
-        if j > i
-            continue
+    @showprogress dt = 0.1 for i in eachindex(rs)
+        sinθ_i, cosθ_i = sinθs[i], cosθs[i]
+        for j in eachindex(rs)
+            if j < i
+                continue
+            end
+
+            if i == j
+                kri = ks .* rs[i]
+                ell_max = 100
+                Pells = Dict(ell => 1. for ell in ell_min:ell_max)
+                Σij = C_ij(kri, kri, Pells, Pk, ks; ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
+            else
+                cosΔ = min(sinθ_i * sinθs[j] * cos(ϕs[i] - ϕs[j]) + cosθ_i * cosθs[j], 1.0)
+                Σij = Cij_interpolator(rs[i], rs[j], cosΔ)
+            end
+
+            Σ[i, j] = Σij
+            Σ[j, i] = Σij
         end
-
-        cosΔ = sinθs[i] * sinθs[j] * cos(ϕs[i] - ϕs[j]) + cosθs[i] * cosθs[j]
-        Σij = Cij_interpolator(rs[i], rs[j], cosΔ)
-
-        Σ[i, j] = Σij
-        Σ[j, i] = Σij
     end
 
     return Σ
+end
+
+
+"""
+    pecvel_covariance_matrix_brute(rs, θs, ϕs, Pk, ks; ell_min=2, djn_interp=nothing, start_krs=nothing) -> Matrix
+
+Compute the covariance matrix for the peculiar velocity field for a set of tracers using a brute-force, without
+any interpolation of C_ij elements.
+"""
+function pecvel_covmat_brute(rs, θs, ϕs, Pk, ks; ell_min=2, djn_interp=nothing, start_krs=nothing)
+    @assert length(rs) == length(θs) && length(θs) == length(ϕs) "rs, θs, and ϕs must have the same length."
+    sinθs, cosθs = sin.(θs), cos.(θs)
+
+    Σ = zeros(length(rs), length(rs))
+    # TODO: parallel processing?
+    @showprogress dt = 0.1 for i in eachindex(rs)
+        kri = ks .* rs[i]
+        sinθ_i, cosθ_i = sinθs[i], cosθs[i]
+        ϕ_i = ϕs[i]
+
+        for j in eachindex(rs)
+            if j > i
+                continue
+            end
+
+            krj = ks .* rs[j]
+            cosΔ = min(sinθ_i * sinθs[j] * cos(ϕ_i - ϕs[j]) + cosθ_i * cosθs[j], 1.0)
+
+            ell_max = cosΔ < 0.95 ? 20 : 100
+            Pells = precompute_legendre_Pells(ell_min, ell_max, cosΔ)
+
+            Σij = C_ij(kri, krj, Pells, Pk, ks; ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
+            Σ[i, j] = Σij
+            Σ[j, i] = Σij
+        end
+    end
+    return Σ
+
 end
 
 
