@@ -1,3 +1,7 @@
+"""
+Script to sample the covariance matrix C_ij over a grid of r, r', and cosθ values. The underlying cosmological
+choice is banked in through the power spectrum interpolator. The script saves the computed covariance matrix elements.
+"""
 using PecVelCov
 using ProgressMeter
 using Base.Threads
