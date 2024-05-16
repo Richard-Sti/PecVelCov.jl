@@ -11,7 +11,7 @@ using Interpolations
 
 export build_Cij_interpolator, build_Cii_interpolator, build_Pk_interpolator,
     covariance_inverse_and_determinant, C_ij, djn, sf_legendre_Pl, precompute_djn,
-    precompute_djn_start, precompute_legendre_Pells, pecvel_covmat_from_interp,
+    precompute_legendre_Pells, pecvel_covmat_from_interp,
     pecvel_covmat_brute
 
 
@@ -24,13 +24,15 @@ export build_Cij_interpolator, build_Cii_interpolator, build_Pk_interpolator,
     build_Pk_interpolator(fname::String) -> LinearInterpolation
 
 Build a linear interpolator for the power spectrum `P(k)` from the data stored in the file `fname`.
+Internally, the interpolator is built in log-log space.
 """
 function build_Pk_interpolator(fname)
     X = npzread(fname)
     k = X[:, 1]
     Pk = X[:, 2]
 
-    return LinearInterpolation(k, Pk)
+    finterp = LinearInterpolation(log.(k), log.(Pk))
+    return x -> exp(finterp(log(x)))
 end
 
 
@@ -49,9 +51,7 @@ function build_Cij_interpolator(fname)
 
     interp = interpolate(Cij_grid, BSpline(Cubic(Line(OnGrid()))))
     interp = scale(interp, rs, rs, cosθs)
-    interp = extrapolate(interp, Line())
-
-    return interp
+    return extrapolate(interp, Line())
 end
 
 """
@@ -68,9 +68,7 @@ function build_Cii_interpolator(fname)
 
     interp = interpolate(Cii_grid, BSpline(Cubic(Line(OnGrid()))))
     interp = scale(interp, rs)
-    interp = extrapolate(interp, Line())
-
-    return interp
+    return extrapolate(interp, Line())
 end
 
 
@@ -90,19 +88,18 @@ end
 Precompute an interpolator for the derivative of the spherical Bessel function of the first kind
 `jₙ(x)` with respect to `x` for the range of multipoles `ell_min` to `ell_max`.
 """
-function precompute_djn(ell_min, ell_max, xs)
-    return Dict(ell => interpolate((xs,), djn.(ell, xs), Gridded(Linear())) for ell in ell_min:ell_max)
-end
+function precompute_djn(fname)
+    xs, ells, ys = nothing, nothing, nothing
+    jldopen(fname, "r") do file
+        xs = file["xs"]
+        ells = file["ells"]
+        ys = file["ys"]
+    end
 
+    dnj_interp = Dict(ell => interpolate((xs,), ys[:, i], Gridded(Linear())) for (i, ell) in enumerate(ells))
+    start_xs = Dict(ell => xs[findfirst(x -> abs(x) > 1e-10, ys[:, i])] for (i, ell) in enumerate(ells))
+    return dnj_interp, start_xs
 
-"""
-    precompute_djn_start(djn_interp, xs) -> Dict
-
-Precompute the first point where the absolute value of the derivative of the spherical Bessel function
-of the first kind `jₙ(x)` with respect to `x` is greater than `fmin` for the range of multipoles.
-"""
-function precompute_djn_start(djn_interp, xs; fmin=1e-10)
-    return Dict(ell => xs[findfirst(x -> abs(x) > fmin, djn_interp[ell](xs))] for ell in keys(djn_interp))
 end
 
 
@@ -156,6 +153,11 @@ end
 ###############################################################################
 
 
+# function point_separation(r1, θ1, ϕ1, r2, θ2, ϕ2)
+    # return r1^2 + r2^22 - 2 * r1 * r2 * (sin(θ1) * sin(θ2) * cos(ϕ1 - ϕ2) + cos(θ1) * cos(θ2)
+# end
+#
+
 """
     pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_interpolator; ell_min, djn_interp, start_krs) -> Matrix
 
@@ -168,6 +170,7 @@ function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_i
     sinθs, cosθs = sin.(θs), cos.(θs)
 
     Σ = zeros(length(rs), length(rs))
+    count = 0
     @showprogress dt = 0.1 for i in eachindex(rs)
         sinθ_i, cosθ_i = sinθs[i], cosθs[i]
         for j in eachindex(rs)
@@ -177,8 +180,22 @@ function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_i
 
             if i == j
                 Σij = Cii_interpolator(rs[i])
+                Σ[i, j] = Σij
+                Σ[j, i] = Σij
+                continue
+            end
+
+            cosΔ = min(sinθ_i * sinθs[j] * cos(ϕs[i] - ϕs[j]) + cosθ_i * cosθs[j], 1.0)
+
+            # if cosΔ > 0.95 # && abs(rs[i] - rs[j]) < 10
+            if false
+                count += 1
+                ell_max = cosΔ > 0.95 ? 100 : 20
+                kri = ks .* rs[i]
+                krj = ks .* rs[j]
+                Pells = precompute_legendre_Pells(ell_min, ell_max, cosΔ)
+                Σij = C_ij(kri, krj, Pells, Pk, ks; ell_min=ell_min, ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
             else
-                cosΔ = min(sinθ_i * sinθs[j] * cos(ϕs[i] - ϕs[j]) + cosθ_i * cosθs[j], 1.0)
                 Σij = Cij_interpolator(rs[i], rs[j], cosΔ)
             end
 
@@ -186,6 +203,8 @@ function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_i
             Σ[j, i] = Σij
         end
     end
+
+    @show count
 
     return Σ
 end
