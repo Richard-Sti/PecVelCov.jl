@@ -9,12 +9,21 @@ using PecVelCov
 using ProgressMeter
 
 
+###############################################################################
+#                          Parse the command line                             #
+###############################################################################
+
+
 function get_cmd(args)
     s = ArgParseSettings()
     @add_arg_table! s begin
         "--runtype"
             help = "Type of run: `full`, `diagonal`, `close`, or `opposite"
             arg_type = String
+        "--continue"
+            help = "Whether to continue the computation from the last saved point."
+            arg_type = Bool
+            default = false
         "--include_dipole"
             help = "Include the dipole term in the covariance matrix"
             arg_type = Bool
@@ -73,30 +82,62 @@ function get_cmd(args)
         args["fname_out"] = replace(args["fname_out"], ".jld2" => "_including_dipole.jld2")
     end
 
+    args["fname_temp"] = replace(args["fname_out"], ".jld2" => "_temp.jld2")
+
     flush(stdout)
     return args
 end
 
 
-function run_full(rs, cosθs, Pk, ks, ell_min, ell_max, djn_interp, start_krs)
+###############################################################################
+#                          Main computation functions                         #
+###############################################################################
+
+
+function run_full(rs, cosθs, Pk, ks, ell_min, ell_max, djn_interp, start_krs, fname_temp)
     nr, ncosθ = length(rs), length(cosθs)
-    Cij_grid = zeros(nr, nr, ncosθ)
+
+    kstart = 1
+    jldopen(fname_temp, "r") do file
+        kstart = file["kstart"]
+        if kstart > 1
+            println("Resuming computation from k = $(kstart)."); flush(stdout)
+        end
+    end
 
     p = Progress(nr * nr * ncosθ, dt=1)
-    @threads for k in reverse(1:ncosθ)
+    for k in kstart:ncosθ
         cosθ = cosθs[k]
         Pells = precompute_legendre_Pells(ell_min, ell_max, cosθ)
-        for i in 1:nr
+        Cij_current = fill(NaN, nr, nr)
+        # Parallelize the inner loop for thread safety when writing the temporary file.
+        @threads for i in 1:nr
             kri = ks .* rs[i]
             for j in 1:nr
                 krj = ks .* rs[j]
-                Cij_grid[i, j, k] = C_ij(kri, krj, Pells, Pk, ks; ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
+                Cij_current[i, j] = C_ij(kri, krj, Pells, Pk, ks; ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
                 next!(p)
             end
             flush(stdout)
         end
+
+        # Save the computed elements to a temporary file in case the computation is interrupted.
+        jldopen(fname_temp, "r+") do file
+            file["Σ_$k"] = Cij_current
+            delete!(file, "kstart")
+            file["kstart"] = k + 1
+        end
+
     end
     finish!(p)
+
+    # Now concatenate the computed elements from the temporary files into a single array.
+    Cij_grid = zeros(nr, nr, ncosθ)
+    jldopen(fname_temp, "r") do file
+        for k in 1:ncosθ
+            Cij_grid[:, :, k] = file["Σ_$k"]
+        end
+    end
 
     return Cij_grid
 end
@@ -117,9 +158,38 @@ function run_diagonal(rs, Pk, ks, ell_min, ell_max, djn_interp, start_krs)
 end
 
 
+###############################################################################
+#                                 Main script                                #
+###############################################################################
+
+
 if abspath(PROGRAM_FILE) == @__FILE__
     println("We are running with $(Threads.nthreads()) threads.\n")
     args = get_cmd(ARGS)
+
+    # Diagonal is fast so we don't need to ever continue it.
+    if args["continue"] && args["runtype"] == "diagonal"
+        error("Cannot continue the computation for the diagonal elements.")
+    end
+
+    if args["continue"]
+        if !isfile(args["fname_temp"])
+            error("File `$(args["fname_out"])` does not exist.")
+        end
+
+    else
+        if isfile(args["fname_temp"])
+            println("File `$(args["fname_temp"])` already exists. Removing it.")
+            rm(args["fname_temp"])
+        end
+
+        # Write a new temporary file
+        jldopen(args["fname_temp"], "w") do file
+            file["rs"] = args["rs"]
+            file["cosθs"] = args["cosθs"]
+            file["kstart"] = 1
+        end
+    end
 
     println("Loading power spectrum from `$(args["fname_pk"])`..."), flush(stdout)
     ks = 10 .^ LinRange(args["logk_range"][1], args["logk_range"][2], args["npoints_k"])
@@ -128,13 +198,23 @@ if abspath(PROGRAM_FILE) == @__FILE__
     println("Loading the precomputed spherical Bessel function derivatives from `$(args["fname_djn"])`..."), flush(stdout)
     djn_interp, start_krs = build_dnj_interpolator(args["fname_djn"])
 
-    println("Starting computation, kind is `$(args["runtype"])`...\n"), flush(stdout)
-    if args["cosθs"] === nothing
+
+    println("Starting computation, kind is `$(args["runtype"])`."), flush(stdout)
+    if args["runtype"] == "diagonal"
         Σ = run_diagonal(args["rs"], Pk, ks, args["ell_min"], args["ell_max"], djn_interp, start_krs)
     else
-        Σ = run_full(args["rs"], args["cosθs"], Pk, ks, args["ell_min"], args["ell_max"], djn_interp, start_krs)
+        Σ = run_full(args["rs"], args["cosθs"], Pk, ks, args["ell_min"], args["ell_max"], djn_interp, start_krs, args["fname_temp"])
     end
 
     println("Saving computed covariance matrix elements to `$(args["fname_out"])`.")
-    jldsave(args["fname_out"], rs=args["rs"], cosθs=args["cosθs"], Σ=Σ)
+    jldopen(args["fname_out"], "w") do file
+        file["rs"] = args["rs"]
+        file["cosθs"] = args["cosθs"]
+        file["Σ"] = Σ
+    end
+
+    if isfile(args["fname_temp"])
+        println("Removing temporary file `$(args["fname_temp"])`.")
+        rm(args["fname_temp"])
+    end
 end
