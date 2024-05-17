@@ -164,7 +164,7 @@ function C_ij(kri, krj, Pells, Pk, ks; ell_min=2, ell_max=20, djn_interp=nothing
             if kri_i < start_kr || krj_i < start_kr
                 break
             end
-            y_val += @fastmath (ell + 1) * djn_eval(ell, kri_i) * djn_eval(ell, krj_i) * Pells[ell]
+            y_val += @fastmath (2 * ell + 1) * djn_eval(ell, kri_i) * djn_eval(ell, krj_i) * Pells[ell]
         end
         ys_dummy[i] = y_val * Pk[i]
     end
