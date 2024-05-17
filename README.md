@@ -9,3 +9,5 @@
 - [ ] Add growth factor prefactors to the $C_{ij}$ calculation.
 - [x] Add a function that constructs the covariance matrix from a set of observations.
 - [x] Add a function that gradually writes to a file when sampling the interpolator grid, so that the jobs can be interrupted.
+- [ ] Fix bug in $\ell$ factors.
+- [ ] Improve spacing in $k$ so that it is linear at high $k$.
