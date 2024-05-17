@@ -59,7 +59,7 @@ function get_cmd(args)
         args["rs"] = LinRange(0.1, 350, 500)  # Mpc / h
         args["cosθs"] = LinRange(-1, -0.925, 500)
         args["ell_max"] = 100
-        println("Sampling Σ_ij over $(length(args["rs"])) x $(length(rs)) x $(length(args["cosθs"])) grid points.")
+        println("Sampling Σ_ij over $(length(args["rs"])) x $(length(args["rs"])) x $(length(args["cosθs"])) grid points.")
     else
         error("Invalid runtype: $(args["runtype"])")
     end
