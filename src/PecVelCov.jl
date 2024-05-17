@@ -9,7 +9,7 @@ using ProgressMeter
 using LinearAlgebra
 using Interpolations
 
-export build_Cij_interpolator, build_Cii_interpolator, build_dnj_interpolator, build_Pk_interpolator,
+export build_Cij_interpolator, build_Cij_joint_interpolator, build_Cii_interpolator, build_dnj_interpolator, build_Pk_interpolator,
     covariance_inverse_and_determinant, C_ij, djn, sf_legendre_Pl, precompute_legendre_Pells,
     pecvel_covmat_from_interp, pecvel_covmat_brute
 
@@ -45,13 +45,40 @@ function build_Cij_interpolator(fname)
     jldopen(fname, "r") do file
         rs = file["rs"]
         cosθs = file["cosθs"]
-        Cij_grid = file["Cij_grid"]
+        Cij_grid = file["Σ"]
     end
 
     interp = interpolate(Cij_grid, BSpline(Cubic(Line(OnGrid()))))
     interp = scale(interp, rs, rs, cosθs)
     return extrapolate(interp, Line())
 end
+
+
+"""
+    build_Cij_joint_interpolator(fname_full::String, fname_close::String, fname_opposite::String) -> Function
+
+Build a joint interpolator for the covariance matrix elements `C_{ij}` from the data stored in the files `fname_full`,
+`fname_close`, and `fname_opposite`. Choice of the appropriate interpolator is based on the hard-coded value of `cosθ`.
+"""
+function build_Cij_joint_interpolator(fname_full, fname_close, fname_opposite)
+    Cij_interp_full = build_Cij_interpolator(fname_full)
+    Cij_interp_close = build_Cij_interpolator(fname_close)
+    Cij_interp_opposite = build_Cij_interpolator(fname_opposite)
+
+    function Cij_joint_interp(r1, r2, cosθ)
+        if cosθ > 0.925
+            return Cij_interp_close(r1, r2, cosθ)
+        elseif cosθ < -0.925
+            return Cij_interp_opposite(r1, r2, cosθ)
+        else
+            return Cij_interp_full(r1, r2, cosθ)
+        end
+    end
+
+    return Cij_joint_interp
+
+end
+
 
 """
     build_Cii_interpolator(fname::String) -> Interpolations.ScaledInterpolation
@@ -62,7 +89,7 @@ function build_Cii_interpolator(fname)
     rs, Cii_grid = nothing, nothing, nothing
     jldopen(fname, "r") do file
         rs = file["rs"]
-        Cii_grid = file["Cii_grid"]
+        Cii_grid = file["Σ"]
     end
 
     interp = interpolate(Cii_grid, BSpline(Cubic(Line(OnGrid()))))
@@ -151,11 +178,6 @@ end
 ###############################################################################
 
 
-# function point_separation(r1, θ1, ϕ1, r2, θ2, ϕ2)
-    # return r1^2 + r2^22 - 2 * r1 * r2 * (sin(θ1) * sin(θ2) * cos(ϕ1 - ϕ2) + cos(θ1) * cos(θ2)
-# end
-#
-
 """
     pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_interpolator; ell_min, djn_interp, start_krs) -> Matrix
 
@@ -168,33 +190,16 @@ function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_i
     sinθs, cosθs = sin.(θs), cos.(θs)
 
     Σ = zeros(length(rs), length(rs))
-    count = 0
+    # TODO parallel processing?
     @showprogress dt = 0.1 for i in eachindex(rs)
         sinθ_i, cosθ_i = sinθs[i], cosθs[i]
         for j in eachindex(rs)
             if j < i
                 continue
-            end
-
-            if i == j
+            elseif i == j
                 Σij = Cii_interpolator(rs[i])
-                Σ[i, j] = Σij
-                Σ[j, i] = Σij
-                continue
-            end
-
-            cosΔ = min(sinθ_i * sinθs[j] * cos(ϕs[i] - ϕs[j]) + cosθ_i * cosθs[j], 1.0)
-
-            # TODO: edit this.
-            # if cosΔ > 0.95 # && abs(rs[i] - rs[j]) < 10
-            if false
-                count += 1
-                ell_max = cosΔ > 0.95 ? 100 : 20
-                kri = ks .* rs[i]
-                krj = ks .* rs[j]
-                Pells = precompute_legendre_Pells(ell_min, ell_max, cosΔ)
-                Σij = C_ij(kri, krj, Pells, Pk, ks; ell_min=ell_min, ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
             else
+                cosΔ = min(sinθ_i * sinθs[j] * cos(ϕs[i] - ϕs[j]) + cosθ_i * cosθs[j], 1.0)
                 Σij = Cij_interpolator(rs[i], rs[j], cosΔ)
             end
 
@@ -202,8 +207,6 @@ function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_i
             Σ[j, i] = Σij
         end
     end
-
-    @show count
 
     return Σ
 end
