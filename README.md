@@ -8,4 +8,4 @@
 - [x] Write a hybrid covariance matrix calculation that uses interpolator for far-spaced elements and direct calculation for close-spaced elements.
 - [ ] Add growth factor prefactors to the $C_{ij}$ calculation.
 - [x] Add a function that constructs the covariance matrix from a set of observations.
-- [ ] Add a function that gradually writes to a file when sampling the interpolator grid, so that the jobs can be interrupted.
+- [x] Add a function that gradually writes to a file when sampling the interpolator grid, so that the jobs can be interrupted.
