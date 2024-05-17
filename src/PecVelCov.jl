@@ -9,9 +9,9 @@ using ProgressMeter
 using LinearAlgebra
 using Interpolations
 
-export build_Cij_interpolator, build_Cij_joint_interpolator, build_Cii_interpolator, build_dnj_interpolator, build_Pk_interpolator,
-    covariance_inverse_and_determinant, C_ij, djn, sf_legendre_Pl, precompute_legendre_Pells,
-    pecvel_covmat_from_interp, pecvel_covmat_brute
+export build_Cij_interpolator, build_Cij_joint_interpolator, build_Cii_interpolator, build_dnj_interpolator,
+    build_Pk_interpolator, covariance_inverse_and_determinant, C_ij, djn, sf_legendre_Pl,
+    precompute_legendre_Pells, pecvel_covmat_from_interp, pecvel_covmat_brute
 
 
 ###############################################################################
@@ -190,22 +190,25 @@ function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_i
     sinθs, cosθs = sin.(θs), cos.(θs)
 
     Σ = zeros(length(rs), length(rs))
-    # TODO parallel processing?
+    # First compute the off-diagonal elements.
     @showprogress dt = 0.1 for i in eachindex(rs)
-        sinθ_i, cosθ_i = sinθs[i], cosθs[i]
+        sinθ_i, cosθ_i, ϕ_i = sinθs[i], cosθs[i], ϕs[i]
         for j in eachindex(rs)
-            if j < i
+            if j > i
                 continue
-            elseif i == j
-                Σij = Cii_interpolator(rs[i])
-            else
-                cosΔ = min(sinθ_i * sinθs[j] * cos(ϕs[i] - ϕs[j]) + cosθ_i * cosθs[j], 1.0)
-                Σij = Cij_interpolator(rs[i], rs[j], cosΔ)
             end
+
+            cosΔ = min(sinθ_i * sinθs[j] * cos(ϕ_i - ϕs[j]) + cosθ_i * cosθs[j], 1.0)
+            Σij = Cij_interpolator(rs[i], rs[j], cosΔ)
 
             Σ[i, j] = Σij
             Σ[j, i] = Σij
         end
+    end
+
+    # And then compute the diagonal elements.
+    for i in eachindex(rs)
+        Σ[i, i] = Cii_interpolator(rs[i])
     end
 
     return Σ
@@ -223,7 +226,6 @@ function pecvel_covmat_brute(rs, θs, ϕs, Pk, ks; ell_min=2, djn_interp=nothing
     sinθs, cosθs = sin.(θs), cos.(θs)
 
     Σ = zeros(length(rs), length(rs))
-    # TODO: parallel processing?
     @showprogress dt = 0.1 for i in eachindex(rs)
         kri = ks .* rs[i]
         sinθ_i, cosθ_i = sinθs[i], cosθs[i]
