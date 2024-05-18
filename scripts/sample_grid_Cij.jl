@@ -28,20 +28,12 @@ function get_cmd(args)
             help = "Include the dipole term in the covariance matrix"
             arg_type = Bool
             default = false
-        "--logk_range"
-            help = "Range of log(k) values [h / Mpc]"
-            arg_type = Float64
-            nargs = 2
-            default = [-4., 1.]
-        "--npoints_k"
-            help = "Number of points in k"
-            arg_type = Int
-            default = 4096
     end
 
-    args = parse_args(args, s)
 
+    args = parse_args(args, s)
     args["fname_pk"] = "/mnt/users/rstiskalek/BayesianBulkFlows/data/pk_fiducial.npy"
+    args["ks"] = make_spacing(1e-4, 10, 1024, 0.33; log_fraction=0.33)
     args["fname_djn"] = "/mnt/extraspace/rstiskalek/BBF/djn_grid.jld2"
     args["ell_min"] = args["include_dipole"] ? 1 : 2
 
@@ -192,7 +184,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     end
 
     println("Loading power spectrum from `$(args["fname_pk"])`..."), flush(stdout)
-    ks = 10 .^ LinRange(args["logk_range"][1], args["logk_range"][2], args["npoints_k"])
+    ks = args["ks"]
     Pk = build_Pk_interpolator(args["fname_pk"]).(ks)
 
     println("Loading the precomputed spherical Bessel function derivatives from `$(args["fname_djn"])`..."), flush(stdout)
