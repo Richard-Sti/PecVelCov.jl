@@ -10,13 +10,36 @@ using LinearAlgebra
 using Interpolations
 
 export build_Cij_interpolator, build_Cij_joint_interpolator, build_Cii_interpolator, build_dnj_interpolator,
-    build_Pk_interpolator, covariance_inverse_and_determinant, C_ij, djn, sf_legendre_Pl,
+    build_Pk_interpolator, covariance_inverse_and_determinant, C_ij, djn, make_spacing, sf_legendre_Pl,
     precompute_legendre_Pells, pecvel_covmat_from_interp, pecvel_covmat_brute
 
 
 ###############################################################################
 #                     Building interpolators                                  #
 ###############################################################################
+
+
+"""
+    make_spacing(xmin, xmax, npoints, transition; log_fraction=0.5) -> Vector
+
+Create a spacing of `npoints` points between `xmin` and `xmax` with a transition point at `transition`.
+The spacing is logarithmic between `xmin` and `transition` and linear between `transition` and `xmax`.
+"""
+function make_spacing(xmin, xmax, npoints, transition; log_fraction=0.5)
+    if log_fraction > 1 || log_fraction < 0
+        throw(ArgumentError("log_fraction must be between 0 and 1"))
+    end
+
+    if transition < xmin || transition > xmax
+        throw(ArgumentError("transition must be between xmin and xmax"))
+    end
+
+    npoints_log = Int(floor(npoints * log_fraction))
+    xlow = 10 .^ LinRange(log10(xmin), log10(transition), npoints_log + 1)
+    xhigh = LinRange(transition, xmax, npoints - npoints_log)
+    return vcat(xlow[1:end - 1], xhigh)
+
+end
 
 
 """
@@ -155,6 +178,12 @@ function C_ij(kri, krj, Pells, Pk, ks; ell_min=2, ell_max=20, djn_interp=nothing
     djn_eval = isa(djn_interp, Nothing) ? (ell, k) -> djn(ell, k) : (ell, k) -> djn_interp[ell](k)
     start_krs_eval = isa(start_krs, Nothing) ? ell -> 0.0 : ell -> start_krs[ell]
 
+    # Hard-coded value for the derivative of the growth factor with respect to conformal time
+    # in units of km / s / Mpc. This is the value for the Planck 2018 cosmology, accurate
+    # enough at lower redshifts.
+    dDdτ = 35.5
+    norm = dDdτ^2 / (2 * π^2)
+
     @inbounds for i in eachindex(ks)
         y_val, kri_i, krj_i = 0.0, kri[i], krj[i]
         for ell in ell_range
@@ -164,12 +193,12 @@ function C_ij(kri, krj, Pells, Pk, ks; ell_min=2, ell_max=20, djn_interp=nothing
             if kri_i < start_kr || krj_i < start_kr
                 break
             end
-            y_val += @fastmath (ell + 1) * djn_eval(ell, kri_i) * djn_eval(ell, krj_i) * Pells[ell]
+            y_val += @fastmath (2 * ell + 1) * djn_eval(ell, kri_i) * djn_eval(ell, krj_i) * Pells[ell]
         end
         ys_dummy[i] = y_val * Pk[i]
     end
 
-    return solve(SampledIntegralProblem(ys_dummy, ks), SimpsonsRule()).u
+    return norm * solve(SampledIntegralProblem(ys_dummy, ks), SimpsonsRule()).u
 end
 
 
