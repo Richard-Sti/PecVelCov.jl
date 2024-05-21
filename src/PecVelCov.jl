@@ -208,13 +208,13 @@ end
 
 
 """
-    pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_interpolator; ell_min, djn_interp, start_krs) -> Matrix
+    pecvel_covmat_from_interp(rs, θs, ϕs, Cij_interpolator, Cii_interpolator) -> Matrix
 
 Compute the covariance matrix for the peculiar velocity field for a set of tracers using the
 interpolator `Cij_interpolator` for the off-diagonal covariance matrix elements and `Cii_interpolator`
 for the diagonal elements.
 """
-function pecvel_covmat_from_interp(rs, θs, ϕs, Pk, ks, Cij_interpolator, Cii_interpolator; ell_min, djn_interp, start_krs)
+function pecvel_covmat_from_interp(rs, θs, ϕs, Cij_interpolator, Cii_interpolator)
     @assert length(rs) == length(θs) && length(θs) == length(ϕs) "rs, θs, and ϕs must have the same length."
     sinθs, cosθs = sin.(θs), cos.(θs)
 
