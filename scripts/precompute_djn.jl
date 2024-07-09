@@ -12,16 +12,16 @@ function get_cmd(args)
         "--ell_min"
             help = "Minimum ell"
             arg_type = Int
-            default = 1
+            default = 0
         "ell_max"
             help = "Maximum ell"
             arg_type = Int
-            default = 100
+            default = 250
         "logk_range"
             help = "Range of log(k) values [h / Mpc]"
             arg_type = Float64
             nargs = 2
-            default = [-4, 1]
+            default = [-4, 2]
         "r_range"
             help = "Range of r values [Mpc / h]"
             arg_type = Float64
