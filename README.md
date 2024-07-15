@@ -3,7 +3,7 @@
 
 ## About
 
-Code to calculate the covariance matrix of line-of-sight peculiar velocities assuming $\Lambda$CDM linear gravity.
+Code to calculate the covariance matrix of line-of-sight peculiar velocities assuming LCDM linear gravity.
 
 
 ## Installation
@@ -19,5 +19,5 @@ Code to calculate the covariance matrix of line-of-sight peculiar velocities ass
 ## Examples
 ..
 
-# Acknowledgements
+## Acknowledgements
 ..
