@@ -6,12 +6,13 @@ import JLD2: jldopen
 import NPZ: npzread
 import SpecialFunctions: sphericalbesselj
 using ProgressMeter
+using Random
 using LinearAlgebra
 using Interpolations
 
 export build_Cij_interpolator, build_Cij_joint_interpolator, build_Cii_interpolator, build_dnj_interpolator,
     build_Pk_interpolator, covariance_inverse_and_determinant, C_ij, djn, make_spacing, sf_legendre_Pl,
-    precompute_legendre_Pells, pecvel_covmat_from_interp, pecvel_covmat_brute
+    precompute_legendre_Pells, pecvel_covmat_from_interp, pecvel_covmat_brute, make_uniform_spherical
 
 
 ###############################################################################
@@ -301,5 +302,34 @@ function covariance_inverse_and_determinant(C)
 
     return C_inv, det
 end
+
+
+###############################################################################
+#                      Generating random points                               #
+###############################################################################
+
+
+"""
+    make_uniform(rmin, rmax, npoints; seed=42) -> Tuple{Vector, Vector, Vector}
+
+Generate a set of `npoints` points uniformly distributed in a spherical shell between `rmin` and `rmax`.
+"""
+function make_uniform_spherical(rmin, rmax, npoints; seed=42)
+    Random.seed!(seed)
+
+    rs = (rmin^3 .+ (rmax^3 - rmin^3) .* rand(npoints)) .^ (1 / 3)
+    θs = acos.(2 * rand(npoints) .- 1)
+    ϕs = 2π * rand(npoints)
+
+    # Sort the points by radius
+    indxs = sortperm(rs)
+    rs = rs[indxs]
+    θs = θs[indxs]
+    ϕs = ϕs[indxs]
+
+    return rs, θs, ϕs
+
+end
+
 
 end

@@ -20,12 +20,11 @@ function get_cmd(args)
         "--runtype"
             help = "Type of run: `full`, `diagonal`, `close`, or `opposite"
             arg_type = String
+        "--ell_min"
+            help = "The minimum ell value in the covariance matrix."
+            arg_type = Int
         "--continue"
             help = "Whether to continue the computation from the last saved point."
-            arg_type = Bool
-            default = false
-        "--include_dipole"
-            help = "Include the dipole term in the covariance matrix"
             arg_type = Bool
             default = false
     end
@@ -33,15 +32,15 @@ function get_cmd(args)
 
     args = parse_args(args, s)
     args["fname_pk"] = "/mnt/users/rstiskalek/BayesianBulkFlows/data/pk_fiducial.npy"
-    args["ks"] = make_spacing(1e-4, 10, 1024, 0.33; log_fraction=0.33)
+    args["ks"] = make_spacing(1e-4, 10, 4 * 1024, 0.33; log_fraction=0.33)
     args["fname_djn"] = "/mnt/extraspace/rstiskalek/BBF/djn_grid.jld2"
-    args["ell_min"] = args["include_dipole"] ? 1 : 2
+    args["ell_min"] = args["ell_min"]
 
     if args["runtype"] == "full"
         args["fname_out"] = "/mnt/extraspace/rstiskalek/BBF/Cij_grid.jld2"
         args["rs"] = LinRange(0.1, 350, 500)  # Mpc / h
         args["cosθs"] = LinRange(-0.93, 0.93, 500)
-        args["ell_max"] = 20
+        args["ell_max"] = 50
         println("Sampling Σ_ij over $(length(args["rs"])) x $(length(args["rs"])) x $(length(args["cosθs"])) grid points.")
     elseif args["runtype"] == "diagonal"
         args["fname_out"] = "/mnt/extraspace/rstiskalek/BBF/Cii_grid.jld2"
@@ -61,19 +60,28 @@ function get_cmd(args)
         args["cosθs"] = LinRange(-1, -0.925, 500)
         args["ell_max"] = 100
         println("Sampling Σ_ij over $(length(args["rs"])) x $(length(args["rs"])) x $(length(args["cosθs"])) grid points.")
+    elseif occursin("fixed_radius", args["runtype"])
+        R = parse(Float64, split(args["runtype"], "_")[end])
+        args["fname_out"] = "/mnt/extraspace/rstiskalek/BBF/Cij_fixed_radius_$(R)_grid.jld2"
+        args["R"] = R
+        args["rs"] = nothing
+        args["cosθs"] = LinRange(-1, 1, 2500)
+        args["ell_max"] = 250
+        println("Sampling Σ_ij over $(length(args["cosθs"])) grid points at r = $(R).")
     else
         error("Invalid runtype: $(args["runtype"])")
     end
 
-    println("Spacing in r: $(args["rs"][2] - args["rs"][1]) [Mpc / h].")
+    if args["rs"] !== nothing
+        println("Spacing in r: $(args["rs"][2] - args["rs"][1]) [Mpc / h].")
+    end
+
     if args["cosθs"] !== nothing
         println("Spacing in cosθ: $(args["cosθs"][2] - args["cosθs"][1]).")
     end
 
-    if args["include_dipole"]
-        args["fname_out"] = replace(args["fname_out"], ".jld2" => "_including_dipole.jld2")
-    end
 
+    args["fname_out"] = replace(args["fname_out"], ".jld2" => "_ellmin_$(args["ell_min"]).jld2")
     args["fname_temp"] = replace(args["fname_out"], ".jld2" => "_temp.jld2")
 
     flush(stdout)
@@ -107,7 +115,7 @@ function run_full(rs, cosθs, Pk, ks, ell_min, ell_max, djn_interp, start_krs, f
             kri = ks .* rs[i]
             for j in 1:nr
                 krj = ks .* rs[j]
-                Cij_current[i, j] = C_ij(kri, krj, Pells, Pk, ks; ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
+                Cij_current[i, j] = C_ij(kri, krj, Pells, Pk, ks; ell_min=ell_min, ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
                 next!(p)
             end
             flush(stdout)
@@ -143,7 +151,21 @@ function run_diagonal(rs, Pk, ks, ell_min, ell_max, djn_interp, start_krs)
 
     @showprogress dt=1 @threads for i in 1:nr
         kri = ks .* rs[i]
-        Cii_grid[i] = C_ij(kri, kri, Pells, Pk, ks; ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
+        Cii_grid[i] = C_ij(kri, kri, Pells, Pk, ks; ell_min=ell_min, ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
+    end
+
+    return Cii_grid
+end
+
+
+function run_fixed_radius(R, cosθs, Pk, ks, ell_min, ell_max, djn_interp, start_krs)
+    ncosθ = length(cosθs)
+    Cii_grid = zeros(ncosθ)
+    kr = ks .* R
+
+    @showprogress dt=1 @threads for i in 1:ncosθ
+        Pells = precompute_legendre_Pells(ell_min, ell_max, cosθs[i])
+        Cii_grid[i] = C_ij(kr, kr, Pells, Pk, ks; ell_min=ell_min, ell_max=ell_max, djn_interp=djn_interp, start_krs=start_krs)
     end
 
     return Cii_grid
@@ -160,8 +182,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     args = get_cmd(ARGS)
 
     # Diagonal is fast so we don't need to ever continue it.
-    if args["continue"] && args["runtype"] == "diagonal"
-        error("Cannot continue the computation for the diagonal elements.")
+    if (args["continue"] || occursin("fixed_radius", args["runtype"])) && args["runtype"] == "diagonal"
+        error("Cannot continue the computation for the diagonal elements and fixed radius runs.")
     end
 
     if args["continue"]
@@ -194,6 +216,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     println("Starting computation, kind is `$(args["runtype"])`."), flush(stdout)
     if args["runtype"] == "diagonal"
         Σ = run_diagonal(args["rs"], Pk, ks, args["ell_min"], args["ell_max"], djn_interp, start_krs)
+    elseif occursin("fixed_radius", args["runtype"])
+        Σ = run_fixed_radius(args["R"], args["cosθs"], Pk, ks, args["ell_min"], args["ell_max"], djn_interp, start_krs)
     else
         Σ = run_full(args["rs"], args["cosθs"], Pk, ks, args["ell_min"], args["ell_max"], djn_interp, start_krs, args["fname_temp"])
     end
