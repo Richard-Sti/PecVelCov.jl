@@ -29,14 +29,14 @@ end
 
 
 function main()
-    # fname_input(nsim) = "/mnt/extraspace/rstiskalek/quijote/BulkFlow_fiducial/BF_nsim_$nsim.hdf5"
-    # fname_output(nsim) = "/mnt/extraspace/rstiskalek/quijote/BulkFlow_fiducial/BF_nsim_covmat_$nsim.hdf5"
-    fname_input(nsim) = "/mnt/extraspace/rstiskalek/BBF/Quijote_field_points/field_points_$(nsim).h5"
-    fname_output(nsim) = "/mnt/extraspace/rstiskalek/BBF/Quijote_field_points/field_points_$(nsim)_covmat.h5"
+    fname_input(nsim) = "/mnt/extraspace/rstiskalek/quijote/BulkFlow_fiducial/BF_nsim_$nsim.hdf5"
+    fname_output(nsim) = "/mnt/extraspace/rstiskalek/quijote/BulkFlow_fiducial/BF_nsim_covmat_$nsim.hdf5"
+    # fname_input(nsim) = "/mnt/extraspace/rstiskalek/BBF/Quijote_field_points/field_points_$(nsim).h5"
+    # fname_output(nsim) = "/mnt/extraspace/rstiskalek/BBF/Quijote_field_points/field_points_$(nsim)_covmat.h5"
 
 
     nsims = [0]
-    nobs = 8
+    nobs = 27
 
     println("Building interpolators...")
     Cii_interp = build_Cii_interpolator("/mnt/extraspace/rstiskalek/BBF/Cii_grid.jld2");
@@ -57,9 +57,10 @@ function main()
             # Read in halo positions and convert to spherical coordinates
             r, θ, ϕ = nothing, nothing, nothing
             jldopen(fname_input(i)) do file
-                pos = file["obs_$j"]["pos"]
-                obs = file["obs_$j"]["observer"]
-                x, y, z = pos[1, :] .- obs[1], pos[2, :] .- obs[2], pos[3, :] .- obs[3]
+                pos = file["obs_$j"]["halo_pos"]
+                # obs = file["obs_$j"]["observer"]
+                # x, y, z = pos[1, :] .- obs[1], pos[2, :] .- obs[2], pos[3, :] .- obs[3]
+                x, y, z = pos[1, :], pos[2, :], pos[3, :]
                 r, θ, ϕ = cartesian_to_spherical(x, y, z)
             end
 
