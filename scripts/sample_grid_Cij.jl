@@ -32,7 +32,7 @@ function get_cmd(args)
 
     args = parse_args(args, s)
     args["fname_pk"] = "/mnt/users/rstiskalek/BayesianBulkFlows/data/pk_fiducial.npy"
-    args["ks"] = make_spacing(1e-4, 10, 8 * 1024, 0.33; log_fraction=0.33)
+    args["ks"] = make_spacing(1e-4, 10, 4 * 1024, 0.33; log_fraction=0.33)
     args["fname_djn"] = "/mnt/extraspace/rstiskalek/BBF/djn_grid.jld2"
     args["ell_min"] = args["ell_min"]
 
@@ -46,19 +46,19 @@ function get_cmd(args)
         args["fname_out"] = "/mnt/extraspace/rstiskalek/BBF/Cii_grid.jld2"
         args["rs"] = LinRange(0.1, 350, 50000)  # Mpc / h
         args["cosθs"] = nothing
-        args["ell_max"] = 150
+        args["ell_max"] = 100
         println("Sampling Σ_ii over $(length(args["rs"])) grid points.")
     elseif args["runtype"] == "close"
         args["fname_out"] = "/mnt/extraspace/rstiskalek/BBF/Cij_close_grid.jld2"
         args["rs"] = LinRange(0.1, 350, 500)  # Mpc / h
         args["cosθs"] = LinRange(0.925, 1, 500)
-        args["ell_max"] = 150
+        args["ell_max"] = 100
         println("Sampling Σ_ij over $(length(args["rs"])) x $(length(args["rs"])) x $(length(args["cosθs"])) grid points.")
     elseif args["runtype"] == "opposite"
         args["fname_out"] = "/mnt/extraspace/rstiskalek/BBF/Cij_opposite_grid.jld2"
         args["rs"] = LinRange(0.1, 350, 500)  # Mpc / h
         args["cosθs"] = LinRange(-1, -0.925, 500)
-        args["ell_max"] = 150
+        args["ell_max"] = 100
         println("Sampling Σ_ij over $(length(args["rs"])) x $(length(args["rs"])) x $(length(args["cosθs"])) grid points.")
     elseif occursin("fixed_radius", args["runtype"])
         R = parse(Float64, split(args["runtype"], "_")[end])
