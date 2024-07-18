@@ -27,7 +27,6 @@ function cartesian_to_spherical(x, y, z)
     return r, θ, ϕ
 end
 
-
 function main()
     fname_input(nsim) = "/mnt/extraspace/rstiskalek/quijote/BulkFlow_fiducial/BF_nsim_$nsim.hdf5"
     fname_output(nsim) = "/mnt/extraspace/rstiskalek/quijote/BulkFlow_fiducial/BF_nsim_covmat_$nsim.hdf5"
@@ -37,13 +36,14 @@ function main()
 
     nsims = [0]
     nobs = 27
+    ell_min = 0
 
     println("Building interpolators...")
-    Cii_interp = build_Cii_interpolator("/mnt/extraspace/rstiskalek/BBF/Cii_grid.jld2");
+    Cii_interp = build_Cii_interpolator("/mnt/extraspace/rstiskalek/BBF/Cii_grid_ellmin_$ell_min.jld2");
     Cij_interp = build_Cij_joint_interpolator(
-        "/mnt/extraspace/rstiskalek/BBF/Cij_grid.jld2",
-        "/mnt/extraspace/rstiskalek/BBF/Cij_close_grid.jld2",
-        "/mnt/extraspace/rstiskalek/BBF/Cij_opposite_grid.jld2")
+        "/mnt/extraspace/rstiskalek/BBF/Cij_grid_ellmin_$ell_min.jld2",
+        "/mnt/extraspace/rstiskalek/BBF/Cij_close_grid_ellmin_$ell_min.jld2",
+        "/mnt/extraspace/rstiskalek/BBF/Cij_opposite_grid_ellmin_$ell_min.jld2")
 
 
     for i in nsims
