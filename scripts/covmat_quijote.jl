@@ -55,8 +55,6 @@ function main()
             r, θ, ϕ = nothing, nothing, nothing
             jldopen(fname_input(i)) do file
                 pos = file["obs_$j"]["halo_pos"]
-                # obs = file["obs_$j"]["observer"]
-                # x, y, z = pos[1, :] .- obs[1], pos[2, :] .- obs[2], pos[3, :] .- obs[3]
                 x, y, z = pos[1, :], pos[2, :], pos[3, :]
                 r, θ, ϕ = cartesian_to_spherical(x, y, z)
             end
