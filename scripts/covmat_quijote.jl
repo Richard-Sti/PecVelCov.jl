@@ -28,15 +28,12 @@ function cartesian_to_spherical(x, y, z)
 end
 
 function main()
-    fname_input(nsim) = "/mnt/extraspace/rstiskalek/quijote/BulkFlow_fiducial/BF_nsim_$nsim.hdf5"
-    fname_output(nsim) = "/mnt/extraspace/rstiskalek/quijote/BulkFlow_fiducial/BF_nsim_covmat_$nsim.hdf5"
-    # fname_input(nsim) = "/mnt/extraspace/rstiskalek/BBF/Quijote_field_points/field_points_$(nsim).h5"
-    # fname_output(nsim) = "/mnt/extraspace/rstiskalek/BBF/Quijote_field_points/field_points_$(nsim)_covmat.h5"
-
-
     nsims = [0]
     nobs = 27
     ell_min = 0
+
+    fname_input(nsim) = "/mnt/extraspace/rstiskalek/quijote/BulkFlow_fiducial/BF_nsim_$nsim.hdf5"
+    fname_output(nsim) = "/mnt/extraspace/rstiskalek/quijote/BulkFlow_fiducial/BF_nsim_covmat_ell_min_$(ell_min)_$(nsim).hdf5"
 
     println("Building interpolators...")
     Cii_interp = build_Cii_interpolator("/mnt/extraspace/rstiskalek/BBF/Cii_grid_ellmin_$ell_min.jld2");

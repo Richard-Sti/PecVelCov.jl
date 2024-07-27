@@ -8,7 +8,7 @@ memory=7
 # Runtype: diagonal, full, opposite, close
 runtype=${1}
 ell_min=${2}
-continue=false
+continue=${3:-false}
 
 # Check that runtype is OK
 if [ "$runtype" != "diagonal" ] && [ "$runtype" != "full" ] && [ "$runtype" != "opposite" ] && [ "$runtype" != "close" ] && [[ "$runtype" != *"fixed_radius"* ]]; then
@@ -27,10 +27,14 @@ if [ "$ell_min" -ne 0 ] && [ "$ell_min" -ne 1 ] && [ "$ell_min" -ne 2 ] && [ "$e
     exit 1
 fi
 
+if [ "$continue" != "true" ] && [ "$continue" != "false" ]; then
+    echo "Error: continue (3) must be 'true' or 'false'. By default, it is 'false'."
+    exit 1
+fi
 
 
 if [ "$continue" = true ]; then
-    cmd="$env --threads $nthreads $fname --runtype $runtype --ell_min $ell_min --continue"
+    cmd="$env --threads $nthreads $fname --runtype $runtype --ell_min $ell_min --continue true"
 else
     cmd="$env --threads $nthreads $fname --runtype $runtype --ell_min $ell_min"
 fi
