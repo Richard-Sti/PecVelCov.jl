@@ -5,7 +5,11 @@
 
 Code to calculate the covariance matrix of line-of-sight peculiar velocities assuming LCDM linear gravity, as described in [1]. The covariance matrix is:
 
-$${\mathbf C}_{ij} = \frac{1}{2\pi^2} \frac{\mathrm{d}D}{\mathrm{d}\tau(r_i)} \frac{\mathrm{d}D}{\mathrm{d}\tau(r_j)} \int{\rm d}k\,P(k) \sum_{\ell}^\infty (2\ell+1)j_{\ell}'(kr_i)j_{\ell}'(kr_j)P_{\ell}(\hat{\bf r}_i\cdot\hat{\bf r}_j)$$
+```math
+C_{ij}
+=
+\frac{1}{2\pi^2} \frac{\mathrm{d}D}{\mathrm{d}\tau(r_i)} \frac{\mathrm{d}D}{\mathrm{d}\tau(r_j)} \int{\rm d}k\,P(k) \sum_{\ell}^\infty (2\ell+1)j_{\ell}'(kr_i)j_{\ell}'(kr_j)P_{\ell}(\hat{\bf r}_i\cdot\hat{\bf r}_j).
+```
 
 ## Installation
 
