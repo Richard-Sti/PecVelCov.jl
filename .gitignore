@@ -3,3 +3,6 @@ scripts/*.out
 scripts/julia.sh
 .vscode/settings.json
 plots/
+
+venv_pecvelcov/
+pecvelcov/__pycache__/
