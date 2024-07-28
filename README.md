@@ -11,6 +11,8 @@ C_{ij}
 \frac{1}{2\pi^2} \frac{\mathrm{d}D}{\mathrm{d}\tau(r_i)} \frac{\mathrm{d}D}{\mathrm{d}\tau(r_j)} \int{\rm d}k\,P(k) \sum_{\ell}^\infty (2\ell+1)j_{\ell}'(kr_i)j_{\ell}'(kr_j)P_{\ell}(\hat{\bf r}_i\cdot\hat{\bf r}_j).
 ```
 
+- [ ] Add more instructions
+
 ## Installation
 
 
@@ -63,4 +65,5 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 
 ## Examples
-..
+
+- [ ] Add examples
