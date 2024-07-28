@@ -11,7 +11,7 @@ using LinearAlgebra
 using Interpolations
 
 export build_Cij_interpolator, build_Cij_joint_interpolator, build_Cii_interpolator, build_dnj_interpolator,
-    build_Pk_interpolator, covariance_inverse_and_determinant, C_ij, djn, make_spacing, sf_legendre_Pl,
+    build_Pk_interpolator, build_Pk, covariance_inverse_and_determinant, C_ij, djn, make_spacing, sf_legendre_Pl,
     precompute_legendre_Pells, pecvel_covmat_from_interp, pecvel_covmat_brute, make_uniform_spherical
 
 
@@ -44,7 +44,7 @@ end
 
 
 """
-    build_Pk_interpolator(fname::String) -> LinearInterpolation
+    build_Pk_interpolator(fname::String, return_data::Bool) -> Tuple{LinearInterpolation, Vector, Vector}
 
 Build a linear interpolator for the power spectrum `P(k)` from the data stored in the file `fname`.
 Internally, the interpolator is built in log-log space.
@@ -56,6 +56,25 @@ function build_Pk_interpolator(fname)
 
     finterp = LinearInterpolation(log.(k), log.(Pk))
     return x -> exp(finterp(log(x)))
+
+end
+
+
+"""
+    build_Pk(fname::String, npoints, transition; log_fraction=0.5) -> Tuple{Vector, Vector}
+
+Build a new power spectrum `P(k)` with `npoints` points between the minimum and maximum values of `k` in the
+original power spectrum stored in the file `fname`. The spacing is logarithmic between the minimum and `transition`
+and linear between `transition` and the maximum value of `k`.
+"""
+function build_Pk(fname, npoints, transition; log_fraction=0.5)
+    ks = npzread(fname)[:, 1]
+    f = build_Pk_interpolator(fname)
+
+    ks_new = make_spacing(minimum(ks), maximum(ks), npoints, transition; log_fraction=log_fraction)
+    Pk_new = f.(ks_new)
+
+    return ks_new, Pk_new
 end
 
 
