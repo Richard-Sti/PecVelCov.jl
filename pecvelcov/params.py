@@ -14,4 +14,4 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 # Optional: specify path to Julia executable if not in PATH
-runtime = "/mnt/users/rstiskalek/.juliaup/bin/julia"
+runtime = None

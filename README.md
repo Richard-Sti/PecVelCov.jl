@@ -13,6 +13,9 @@ C_{ij}
 
 - [ ] Add more instructions
 
+
+While the main body of the code is written in Julia, Python wrappers are provided to facilitate the use of the code in Python.
+
 ## Installation
 
 
@@ -39,6 +42,30 @@ This will install the package in development along with its dependencies. To tes
 ```julia
 using PecVelCov
 ```
+
+
+The Python wrappers can be installed by first going to the Julia REPL, pressing ] to enter the package manager mode, and typing:
+```julia
+add PyCall
+```
+
+Then, create a Python virtual environemnt, install the Python dependencies and the wrappers:
+```bash
+python -m venv venv_pecvelcov
+source venv_pecvelcov/bin/activate
+python -m pip install --upgrade pip && python -m pip install --upgrade setuptools
+
+python -m pip install -e .
+```
+
+Lastly, initialize the Julia environment in Python:
+```python
+import julia
+julia.install()
+```
+
+Having done this, you should be able to use the Python wrappers. Optionally, if the Julia executable is not in your PATH, you may specify the path to the Julia executable in the `runtime` variable in the `params.py` file in the `pecvelcov` directory.
+
 
 ## License and Citation
 If you use or find useful any of the code in this repository, please cite [1].
