@@ -12,6 +12,7 @@ C_{ij}
 ```
 
 - [ ] Add more instructions
+- [ ] The growth factor is currently fixed.
 
 
 While the main body of the code is written in Julia, Python wrappers are provided to facilitate the use of the code in Python.
@@ -93,4 +94,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 ## Examples
 
-- [ ] Add examples
+An example power spectrum may be found in [`data/pk_fiducial.npy`](https://github.com/Richard-Sti/PecVelCov.jl/blob/master/data/pk_fiducial.npy).
+
+- For precomputing the derivatives of the spherical Bessel functions, see [`scripts/precompute_djn.jl`](https://github.com/Richard-Sti/PecVelCov.jl/blob/master/scripts/precompute_djn.jl). Pay attention to the parameter ranges of $r$, $k$, and $\ell$.
+- For computing the covariance matrix on a regular grid of points, see [`scripts/sample_grid_Cij.jl`](https://github.com/Richard-Sti/PecVelCov.jl/blob/master/scripts/sample_grid_Cij.jl). Pay attention to the parameter ranges and note that the grid is split into "full", "close", "opposite" and "diagonal. The options are described in the script.
+
+Note that the above scripts may contain some local paths which must be edited appropriately. Examples of the Python wrappers may be found in [`examples/`](https://github.com/Richard-Sti/PecVelCov.jl/tree/master/examples).
