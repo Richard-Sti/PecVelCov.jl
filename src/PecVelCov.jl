@@ -189,8 +189,6 @@ djn(n, x) = n / x * sphericalbesselj(n, x) - sphericalbesselj(n + 1, x)
 
 Covariance matrix element `C_{ij}` for the two points `rᵢ` and `rⱼ` separated by
 an angle `θ`.
-
-# TODO: Still missing prefactors before the integral over k.
 """
 function C_ij(kri, krj, Pells, Pk, ks; ell_min=2, ell_max=20, djn_interp=nothing, start_krs=nothing)
     ys_dummy = zeros(length(ks))
